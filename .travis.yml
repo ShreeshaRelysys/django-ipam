@@ -1,0 +1,46 @@
+language: python
+sudo: false
+dist: bionic
+
+cache: pip
+
+python:
+  - "3.6"
+  - "3.7"
+
+branches:
+  only:
+    - master
+
+env:
+  - DJANGO="django>=2.2,<3.0" # main tests
+  - DJANGO="django>=3.0,<3.1"
+  - DJANGO="django>=2.2,<3.0" SAMPLE_APP=1 # sample app tests
+  - DJANGO="django>=3.0,<3.1" SAMPLE_APP=1
+
+before_install:
+  - pip install --no-cache-dir -U -r requirements-test.txt
+  - npm install -g jslint
+  - jslint ./django_ipam/static/django-ipam/js/*.js
+
+install:
+  - pip install $DJANGO
+  - python setup.py -q develop
+
+script:
+  - >
+    openwisp-utils-qa-checks --migration-path "./django_ipam/migrations/ ./tests/sample_ipam/migrations/" --skip-checkmakemigrations
+  - |
+    if [[ $SAMPLE_APP != "1" ]]; then
+      openwisp-utils-qa-checks \
+        --skip-isort \
+        --skip-flake8 \
+        --skip-checkmigrations \
+        --skip-checkendline \
+        --skip-checkcommit \
+        --migration-module django_ipam
+    fi
+  - coverage run --source=django_ipam runtests.py
+
+after_success:
+  - coveralls
